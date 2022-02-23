@@ -1,0 +1,137 @@
+---
+title: "Protocol for testing Bluetooth loggers - Experiment 1.1"
+author: "Aurore Ponchon"
+date: "22/02/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## First experiment: measuring the signal strength at fixed distances
+
+This first experiment is aimed at measuring the signal strength of mobile loggers at fixed distances to calibrate them and determine their position. It consists of testing at the same time 2 stationary loggers and 3 mobiles loggers.
+
+# Material needed
+- 2 poles
+- 1 decameter
+- tape
+- 1 chronometer/watch
+- 6 stationary loggers and their batteries
+- 2 charged mobile loggers
+- ziplocks
+
+# The stationary loggers
+They are placed on a fixed pole, 2 at the top (1.8m), 2 in the middle (1.2m) and 2 towards the ground (40cm). Each logger at the same height is placed opposedly, so that one logger can directly detect mobile loggers while the other detect it from behind. Write down the ID and position of each logger. They have to be set to scan every 10 seconds (selecting overall efficiency), scan must be on and must be hidden from other loggers so that they are not detected. Check the time given to make sure it is updated and roughly the same among loggers (especially when gateway is off).
+
+# The mobile loggers
+They are placed on the ground in ziplocks individually and they all face as much as possible the stationary loggers. They have to be set to scan every 10 seconds. Any other option is off (no scanning nor hidden from other loggers). Check the time given to make sure it is updated and roughly the same among loggers (especially when gateway is off).
+
+# The protocol
+Start by placing the pole with mobile loggers at 10 cm from the fixed pole with stationary loggers. Wait 90-120s and move to 50cm, and then wait for 60sec, 1m, 1.5m etc until the loggers don't get detected anymore. This can be checked on the ap. The stationary loggers (numbered between 1 and 100), should not record new logs when mobile loggers are out of reach. Each time we move the distance, the time must be recorded so that we know when exactly the distance is changed.
+
+# Results from first trial of experiment 1 run indoors 18/02/2022
+
+A first test was run indoors due to bad weather. 2 stationary loggers were set on the ground (1,4) as well as 3 mobile loggers (1002,1003,1005). This experiment was a failure, as mobile loggers were not detected further than 50cm.
+
+# Results from second trial of experiment 1 run outdoors 21/02/2022
+
+The stationary loggers (14,17,11,16,1,19) were placed on a pole at 40cm, 1.2m and 1.8m and 2 mobile loggers (1002 and 1020, only one with a detached battery) were moved along the meter. However, this trial was a failure due to the faulty gateway. Indeed, although data were regularly downloaded by the gateway while running the trial, the lack of exact time overwrote the data and all data were 0...
+
+# Results from third trial of experiment 1 run outdoors 22/02/2022
+
+The first trial in the morning was not successful. The data were detected up to 7m but then, before the data were downloaded from the app on the phone, we switched off the stationary loggers, which immediately erased the data. 
+SO LESSON LEARNED: DO NOT SWITCH OFF THE LOGGERS BEFORE THE DATA ARE DOWNLOADED EITHER THROUGH THE APP ON A PHONE OR THROUGH THE GATEWAY.
+
+A second trial was conducted in the afternoon and this time, the data were carefully downloaded from the ap on the phone internal memory (Document folder) and then extracted to a computer for analysis. Mobile loggers 1002 and 1003 were deployed with 1003 having the battery detached. 1002 was no longer detected when trials started so the data only concern one mobile logger. Two additional tables were generated along the log tables: one with the logger names and their position (position) and another one with the distance and corresponding time intervals (dist).
+
+```{r data import , message=F, include=F, echo=F}
+
+library(tidyverse)
+library(here)
+library(readxl)
+library(lubridate)
+
+#import table with time and distance recorded in the field
+dist<-read_excel(here("Data","2022_02_22-second_test_outdoors","2022_02_22_test_distance_time.xlsx")) %>%
+  mutate(Time.start = ymd_hms(paste(ymd("2022-02-22"),format(Time.start+12*3600, "%H:%M:%S"))),
+         Time.end= ymd_hms(paste(ymd("2022-02-22"),format(Time.end+12*3600, "%H:%M:%S"))))
+dist$Interval<-1:nrow(dist)
+
+#import position of loggers in the field
+position<-data.frame(ID=c(16,17,5,19,11,20),
+                    Height=c(1.8,1.8,1.2,1.2,0.4,0.4),
+                    Position= rep(c("facing","opposite"),times=3))
+
+#import actual data from loggers
+data.path<-here("Data","2022_02_22-second_test_outdoors")
+files <- list.files(data.path, pattern = "*.csv") 
+
+#name data and set right classes
+logs <- files %>%
+            map(~ read_csv(file.path(data.path,files),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Detection = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Detection>100) %>% 
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y")))
+
+#merge data with distance and date
+logs.dist<-logs %>% 
+           left_join(position,by="ID") %>% 
+           arrange(Date) %>% 
+           distinct(ID,Date,.keep_all= TRUE) %>% 
+           mutate(Interval=cut(Date,breaks=c(dist$Time.start[1],dist$Time.end),labels=F)) %>% 
+           left_join(dist, by="Interval",all.y=F) %>% 
+           mutate(ID=as.factor(ID))
+
+```
+
+Now that the data are imported and merged, we can generate figures showing the performance of the different loggers.
+
+```{r ,echo=F, fig.height=5,fig.width=10,message=F}
+
+count<-logs.dist %>% 
+    group_by(ID,Height,Position) %>% 
+    count()
+
+gg<-ggplot(count, aes(fill=Position, y=n, x=as.factor(ID))) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Logger ID",y="Logs") +
+    facet_wrap(~Height) +
+    ggtitle("Number of counts depending on height and position")
+print(gg)
+
+
+count.dist<-logs.dist %>% 
+  group_by(ID,Height,Position,Distance) %>%
+  mutate(ID=as.factor(ID),
+         Height=paste("Height:", Height, "m")) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=ID,shape=Position),size=2) +
+  geom_line(aes(color=ID,shape=Position)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_wrap(~Height,nrow=3) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+
+gsig<-ggplot(logs.dist,aes(x=Distance,y=Signal))+
+  geom_point(aes(color=ID,shape=Position),size=2) +
+#  geom_line(aes(color=ID,shape=Position)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Signal strength (dB)") +
+  facet_wrap(~Height,nrow=3) +
+   ggtitle("Signal strength depending on distance")
+print(gsig)
+
+```
+

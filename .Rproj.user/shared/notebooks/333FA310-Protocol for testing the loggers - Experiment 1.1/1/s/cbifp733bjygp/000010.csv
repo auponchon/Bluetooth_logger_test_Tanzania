@@ -1,0 +1,11 @@
+"0","#merge data with distance and date
+logs.dist<-logs %>% 
+           left_join(position,by=""ID"") %>% 
+           arrange(Date) %>% 
+           distinct(ID,Date,.keep_all= TRUE) %>% 
+           mutate(Interval=cut(Date,breaks=c(dist$Time.start[1],dist$Time.end),labels=F)) %>% 
+           left_join(dist, by=Interval)
+"
+"2","Error in standardise_join_by(by, x_names = x_names, y_names = y_names) : 
+  object 'Interval' not found
+"

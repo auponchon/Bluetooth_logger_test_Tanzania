@@ -1,0 +1,34 @@
+---
+title: "Protocol for testing Bluetooth loggers"
+author: "Aurore Ponchon"
+date: "17/02/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## First experiment: measuring the signal strength at fixed distances
+
+This first experiment is aimed at measuring the signal strength of mobile loggers at fixed distances to calibrate them and determine their position. It consists of testing at the same time 6 stationary loggers and 3 mobiles loggers.
+
+# Material needed
+- 2 poles
+- 1 decameter
+- tape
+- 1 chronometer/watch
+- 6 stationary loggers and their batteries
+- 3 charged mobile loggers
+- ziplocks
+
+# The stationary loggers
+They are placed in a fixed pole, 2 at the top, 2 in the middle and 2 towards the ground. Each logger at the same height is placed opposedly, so that one logger can directly detect mobile loggers while the other detect it from behind. Write down the ID and position of each logger. They have to be set to scan every 10 seconds (selecting overall efficiency), scan must be on and must be hidden from other loggers so that they are not detected. Check the time given to make sure it is updated and roughly the same among loggers.
+
+# The mobile loggers
+They are placed on a pole, 2 at extremities and 1 in the middle and they all face the stationary loggers. They have to be set to scan every 10 seconds. Any other option is off (not scanning nor hidden from other loggers). Check the time given to make sure it is updated and roughly the same among loggers.
+
+# The protocol
+Start by placing the pole with mobile loggers at 10 cm from the fixed pole with stationary loggers. Wait 60s and move to 50cm, and then wait for 60sec, 1m, 1.5m etc until the loggers don't get detected anymore. This can be checked on the ap. The stationary loggers (numbered between 1 and 100), should not record new logs when mobile loggers are out of reach. Each time we move the distance, the time must be recorded so that we know when exactly the distance is changed.
+This experiment is done a second time with another set of mobile loggers
+
