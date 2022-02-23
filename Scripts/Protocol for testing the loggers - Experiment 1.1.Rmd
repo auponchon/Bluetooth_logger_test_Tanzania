@@ -54,7 +54,7 @@ library(readxl)
 library(lubridate)
 
 #import table with time and distance recorded in the field
-dist<-read_excel(here("Data","2022_02_22-second_test_outdoors","2022_02_22_test_distance_time.xlsx")) %>%
+dist<-read_excel(here("Data","2022_02_22_second_test_outdoors","2022_02_22_test_distance_time.xlsx")) %>%
   mutate(Time.start = ymd_hms(paste(ymd("2022-02-22"),format(Time.start+12*3600, "%H:%M:%S"))),
          Time.end= ymd_hms(paste(ymd("2022-02-22"),format(Time.end+12*3600, "%H:%M:%S"))))
 dist$Interval<-1:nrow(dist)
@@ -65,7 +65,7 @@ position<-data.frame(ID=c(16,17,5,19,11,20),
                     Position= rep(c("facing","opposite"),times=3))
 
 #import actual data from loggers
-data.path<-here("Data","2022_02_22-second_test_outdoors")
+data.path<-here("Data","2022_02_22_second_test_outdoors")
 files <- list.files(data.path, pattern = "*.csv") 
 
 #name data and set right classes
@@ -88,28 +88,80 @@ logs.dist<-logs %>%
            distinct(ID,Date,.keep_all= TRUE) %>% 
            mutate(Interval=cut(Date,breaks=c(dist$Time.start[1],dist$Time.end),labels=F)) %>% 
            left_join(dist, by="Interval",all.y=F) %>% 
-           mutate(ID=as.factor(ID))
+           mutate(ID=as.factor(ID),
+                  Test=1)
 
 ```
 
-Now that the data are imported and merged, we can generate figures showing the performance of the different loggers.
+# Results from fourth trial of experiment 1 run outdoors 23/02/2022
+
+With the same stationary loggers but placed differently on the pole, we ran the same experiment as previous day (22-02-2022). 5 mobile loggers were prepared: 1002 and 1003 with detached batteries and 1006,007,1008 with attached batteries. Only 3 mobiles loggers were detected: 1003, 1006 and 1008 with strongly bias towards 1003 which was detected much more than the 2 others. Conditions were cold and windy with rain arriving just at the end of the experiment.
+
+```{r data import 2, message=F, include=F, echo=F}
+
+#import table with time and distance recorded in the field
+dist2<-read_excel(here("Data","2022-02-23_third_test_outdoors","2022_02_23_test_distance_time.xlsx")) %>%
+      mutate(Time.start = ymd_hms(paste(ymd("2022-02-23"),format(Time.start+12*3600, "%H:%M:%S"))),
+         Time.end= ymd_hms(paste(ymd("2022-02-23"),format(Time.end+12*3600, "%H:%M:%S"))))
+dist2$Interval<-1:nrow(dist2)
+
+#import position of loggers in the field
+position2<-data.frame(ID=c(20,19,11,16,5,17),
+                    Height=c(1.8,1.8,1.2,1.2,0.4,0.4),
+                    Position= rep(c("facing","opposite"),times=3))
+
+#import actual data from loggers
+data.path2<-here("Data","2022-02-23_third_test_outdoors")
+files2 <- list.files(data.path2, pattern = "*.csv") 
+
+#name data and set right classes
+logs2 <- files2 %>%
+            map(~ read_csv(file.path(data.path2,files2),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Detection = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Detection>100) %>%     #remove data recorded from mobile loggers
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y"))) %>% 
+            distinct(ID,Date,.keep_all= TRUE)   #remove duplicates
+
+#merge data with distance and date
+logs.dist2<-logs2 %>% 
+           left_join(position2,by="ID") %>% 
+           arrange(Date) %>% 
+           mutate(Interval=cut(Date,breaks=c(dist2$Time.start[1],dist2$Time.end),labels=F)) %>% 
+           left_join(dist2, by="Interval",all.y=F) %>% 
+           mutate(ID=as.factor(ID),
+                  Test=2)
+
+```
+
+Now that the data are imported and merged, we can generate figures showing the performance of the different loggers and over the different tests.
 
 ```{r ,echo=F, fig.height=5,fig.width=10,message=F}
 
-count<-logs.dist %>% 
-    group_by(ID,Height,Position) %>% 
+#bind data from different tests
+logs.all<-rbind(logs.dist,logs.dist2)
+
+#count nb of logs
+count<-logs.all %>% 
+    group_by(ID,Height,Position,Test) %>% 
     count()
 
+#plot nb of logs depending on stationary logger
 gg<-ggplot(count, aes(fill=Position, y=n, x=as.factor(ID))) + 
     geom_bar(position="dodge", stat="identity") +
     labs(x="Logger ID",y="Logs") +
-    facet_wrap(~Height) +
+    facet_wrap(Test~Height) +
     ggtitle("Number of counts depending on height and position")
 print(gg)
 
-
-count.dist<-logs.dist %>% 
-  group_by(ID,Height,Position,Distance) %>%
+#plot counts according to distance
+count.dist<-logs.all %>% 
+  group_by(ID,Height,Position,Distance,Test) %>%
   mutate(ID=as.factor(ID),
          Height=paste("Height:", Height, "m")) %>% 
   count()
@@ -119,19 +171,63 @@ gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
   geom_line(aes(color=ID,shape=Position)) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Counts") +
-  facet_wrap(~Height,nrow=3) +
+  facet_wrap(Test~Height,nrow=2) +
    ggtitle("Number of counts depending on distance")
 print(gdist)
 
 
-gsig<-ggplot(logs.dist,aes(x=Distance,y=Signal))+
+gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
   geom_point(aes(color=ID,shape=Position),size=2) +
 #  geom_line(aes(color=ID,shape=Position)) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Signal strength (dB)") +
-  facet_wrap(~Height,nrow=3) +
+  facet_wrap(Test~Height,nrow=2) +
    ggtitle("Signal strength depending on distance")
 print(gsig)
+
+```
+
+After analyzing the effect of stationary loggers, we can now check the performance of mobile loggers from test 2
+
+```{r mobile loggers}
+count<-logs.dist2 %>% 
+    group_by(Detection,ID) %>% 
+    count()
+
+#plot nb of logs depending on stationary logger
+gg<-ggplot(count, aes(fill=Detection, y=n, x=as.factor(ID))) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Logger ID stationary",y="Logs") +
+    facet_wrap(~Detection) +
+    ggtitle("Number of counts depending on stationary logger")
+print(gg)
+
+#plot counts according to distance
+count.dist<-logs.dist2 %>% 
+  group_by(ID,Detection,Distance) %>%
+  mutate(ID=as.factor(ID),
+         Detection=as.factor(Detection)) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=Detection),size=2) +
+  geom_line(aes(color=Detection)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_wrap(~ID,nrow=2) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+
+gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
+  geom_point(aes(color=as.factor(Detection)),size=2) +
+#  geom_line(aes(color=ID) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Signal strength (dB)") +
+  facet_wrap(~ID,nrow=2) +
+   ggtitle("Signal strength depending on distance")
+print(gsig)
+
 
 ```
 
