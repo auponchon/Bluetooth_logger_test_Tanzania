@@ -1,7 +1,7 @@
 ---
 title: "Protocol for testing Bluetooth loggers - Experiment 1.1"
 author: "Aurore Ponchon"
-date: "22/02/2022"
+date: "23/02/2022"
 output: word_document
 ---
 
@@ -135,6 +135,7 @@ logs.dist2<-logs2 %>%
            mutate(Interval=cut(Date,breaks=c(dist2$Time.start[1],dist2$Time.end),labels=F)) %>% 
            left_join(dist2, by="Interval",all.y=F) %>% 
            mutate(ID=as.factor(ID),
+                  Detection=as.factor(Detection),
                   Test=2)
 
 ```
@@ -149,6 +150,8 @@ logs.all<-rbind(logs.dist,logs.dist2)
 #count nb of logs
 count<-logs.all %>% 
     group_by(ID,Height,Position,Test) %>% 
+  mutate(Height=paste("Height:", Height, "m"),
+         Test=paste("Test:",Test)) %>% 
     count()
 
 #plot nb of logs depending on stationary logger
@@ -163,7 +166,8 @@ print(gg)
 count.dist<-logs.all %>% 
   group_by(ID,Height,Position,Distance,Test) %>%
   mutate(ID=as.factor(ID),
-         Height=paste("Height:", Height, "m")) %>% 
+         Height=paste("Height:", Height, "m"),
+         Test=paste("Test:",Test)) %>% 
   count()
 
 gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
@@ -187,9 +191,11 @@ print(gsig)
 
 ```
 
-After analyzing the effect of stationary loggers, we can now check the performance of mobile loggers from test 2
+It looks like higher loggers work better.
 
-```{r mobile loggers}
+After analyzing the effect of stationary loggers, we can now check the performance of mobile loggers from test 2 (only 1 mobile logger was working on test 1).
+
+```{r mobile loggers , echo=F, fig.height=5,fig.width=10}
 count<-logs.dist2 %>% 
     group_by(Detection,ID) %>% 
     count()
@@ -220,7 +226,7 @@ print(gdist)
 
 
 gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
-  geom_point(aes(color=as.factor(Detection)),size=2) +
+  geom_point(aes(color=Detection),size=2) +
 #  geom_line(aes(color=ID) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Signal strength (dB)") +
