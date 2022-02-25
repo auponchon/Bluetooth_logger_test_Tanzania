@@ -1,7 +1,7 @@
 ---
-title: "Protocol for testing Bluetooth loggers - Experiment 1.1"
+title: "Protocol for testing Bluetooth loggers - Experiment 1"
 author: "Aurore Ponchon"
-date: "23/02/2022"
+date: "24/02/2022"
 output: word_document
 ---
 
@@ -56,7 +56,8 @@ library(lubridate)
 #import table with time and distance recorded in the field
 dist<-read_excel(here("Data","2022_02_22_second_test_outdoors","2022_02_22_test_distance_time.xlsx")) %>%
   mutate(Time.start = ymd_hms(paste(ymd("2022-02-22"),format(Time.start+12*3600, "%H:%M:%S"))),
-         Time.end= ymd_hms(paste(ymd("2022-02-22"),format(Time.end+12*3600, "%H:%M:%S"))))
+         Time.end= ymd_hms(paste(ymd("2022-02-22"),format(Time.end+12*3600, "%H:%M:%S"))),
+         Time.int=time_length(interval(Time.start,Time.end),"mins"))
 dist$Interval<-1:nrow(dist)
 
 #import position of loggers in the field
@@ -75,17 +76,17 @@ logs <- files %>%
                            col_types=c('i','i','T','n'))) %>% 
             reduce(rbind) %>% 
             rename(ID=X1,
-                   Detection = X2,
+                   Mobile = X2,
                    Date=X3,
                    Signal=X4) %>% 
-            filter(Detection>100) %>% 
+            filter(Mobile>100) %>% 
             mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y")))
 
 #merge data with distance and date
 logs.dist<-logs %>% 
            left_join(position,by="ID") %>% 
            arrange(Date) %>% 
-           distinct(ID,Date,.keep_all= TRUE) %>% 
+        #   distinct(ID,Date,.keep_all= TRUE) %>% 
            mutate(Interval=cut(Date,breaks=c(dist$Time.start[1],dist$Time.end),labels=F)) %>% 
            left_join(dist, by="Interval",all.y=F) %>% 
            mutate(ID=as.factor(ID),
@@ -95,14 +96,15 @@ logs.dist<-logs %>%
 
 # Results from fourth trial of experiment 1 run outdoors 23/02/2022
 
-With the same stationary loggers but placed differently on the pole, we ran the same experiment as previous day (22-02-2022). 5 mobile loggers were prepared: 1002 and 1003 with detached batteries and 1006,007,1008 with attached batteries. Only 3 mobiles loggers were detected: 1003, 1006 and 1008 with strongly bias towards 1003 which was detected much more than the 2 others. Conditions were cold and windy with rain arriving just at the end of the experiment.
+With the same stationary loggers but placed differently on the pole, we ran the same experiment as previous day (22-02-2022). 5 mobile loggers were prepared: 1002 and 1003 with detached batteries and 1006,1007,1008 with attached batteries. Only 3 mobiles loggers were detected: 1003, 1006 and 1008 with strongly bias towards 1003 which was detected much more than the 2 others. Conditions were cold and windy with rain arriving just at the end of the experiment.
 
 ```{r data import 2, message=F, include=F, echo=F}
 
 #import table with time and distance recorded in the field
 dist2<-read_excel(here("Data","2022-02-23_third_test_outdoors","2022_02_23_test_distance_time.xlsx")) %>%
       mutate(Time.start = ymd_hms(paste(ymd("2022-02-23"),format(Time.start+12*3600, "%H:%M:%S"))),
-         Time.end= ymd_hms(paste(ymd("2022-02-23"),format(Time.end+12*3600, "%H:%M:%S"))))
+         Time.end= ymd_hms(paste(ymd("2022-02-23"),format(Time.end+12*3600, "%H:%M:%S"))),
+        Time.int=time_length(interval(Time.start,Time.end),"mins"))
 dist2$Interval<-1:nrow(dist2)
 
 #import position of loggers in the field
@@ -121,12 +123,12 @@ logs2 <- files2 %>%
                            col_types=c('i','i','T','n'))) %>% 
             reduce(rbind) %>% 
             rename(ID=X1,
-                   Detection = X2,
+                   Mobile = X2,
                    Date=X3,
                    Signal=X4) %>% 
-            filter(Detection>100) %>%     #remove data recorded from mobile loggers
-            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y"))) %>% 
-            distinct(ID,Date,.keep_all= TRUE)   #remove duplicates
+            filter(Mobile>100) %>%     #remove data recorded from mobile loggers
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y")))# %>% 
+  #          distinct(ID,Date,.keep_all= TRUE)   #remove duplicates
 
 #merge data with distance and date
 logs.dist2<-logs2 %>% 
@@ -135,21 +137,118 @@ logs.dist2<-logs2 %>%
            mutate(Interval=cut(Date,breaks=c(dist2$Time.start[1],dist2$Time.end),labels=F)) %>% 
            left_join(dist2, by="Interval",all.y=F) %>% 
            mutate(ID=as.factor(ID),
-                  Detection=as.factor(Detection),
+                  Mobile=as.factor(Mobile),
                   Test=2)
 
 ```
 
-Now that the data are imported and merged, we can generate figures showing the performance of the different loggers and over the different tests.
+# Results from fifth trial of experiment 1 run outdoors 24/02/2022
 
-```{r ,echo=F, fig.height=5,fig.width=10,message=F}
+With the same stationary loggers but placed differently on the pole and with new batteries, we ran the same experiment as previous day (22/23-02-2022). 5 mobile loggers were prepared: 1003 and 1010 with detached batteries and 1006,1008,1009 with batteries replaced to avoid having it behind the antenna. Conditions were cold but not windy and sunny.
+
+```{r data import 3, message=F, include=F, echo=F}
+
+#import table with time and distance recorded in the field
+dist3<-read_excel(here("Data","2022-02-24_fourth_test_outdoors","2022_02_24_test_distance_time.xlsx")) %>%
+      mutate(Time.start = ymd_hms(paste(ymd("2022-02-24"),format(Time.start+12*3600, "%H:%M:%S"))),
+         Time.end= ymd_hms(paste(ymd("2022-02-24"),format(Time.end+12*3600, "%H:%M:%S"))),
+          Time.int=time_length(interval(Time.start,Time.end),"mins"))
+dist3$Interval<-1:nrow(dist3)
+
+#import position of loggers in the field
+position3<-data.frame(ID=c(16,17,5,11,19,20),
+                    Height=c(1.8,1.8,1.2,1.2,0.4,0.4),
+                    Position= rep(c("facing","opposite"),times=3))
+
+#import actual data from loggers
+data.path3<-here("Data","2022-02-24_fourth_test_outdoors")
+files3 <- list.files(data.path3, pattern = "*.csv") 
+
+#name data and set right classes
+logs3 <- files3 %>%
+            map(~ read_csv(file.path(data.path3,files3),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Mobile = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Mobile>100) %>%     #remove data recorded from mobile loggers
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y"))) #%>% 
+    #        distinct(ID,Date,.keep_all= TRUE)   #remove duplicates
+
+#merge data with distance and date
+logs.dist3<-logs3 %>% 
+           left_join(position3,by="ID") %>% 
+           arrange(Date) %>% 
+           mutate(Interval=cut(Date,breaks=c(dist3$Time.start[1],dist3$Time.end),labels=F)) %>% 
+           left_join(dist3, by="Interval",all.y=F) %>% 
+           mutate(ID=as.factor(ID),
+                  Mobile=as.factor(Mobile),
+                  Test=3)
+
+```
+
+# Results from sixth trial of experiment 1 run outdoors 25/02/2022
+
+With the same stationary loggers placed at the same place on the pole, we ran the same experiment as previous day (22/23-02-2022). 5 mobile loggers were prepared: 1003 and 1010 with detached batteries and 1006,1008,1009 with batteries replaced to avoid having it behind the antenna. Conditions were cold but not windy and sunny.
+
+```{r data import 4, message=F, include=F, echo=F}
+
+#import table with time and distance recorded in the field
+dist4<-read_excel(here("Data","2022-02-25_fifth_test_outdoors","2022_02_25_test_distance_time.xlsx")) %>%
+      mutate(Time.start = ymd_hms(paste(ymd("2022-02-25"),format(Time.start+12*3600, "%H:%M:%S"))),
+         Time.end= ymd_hms(paste(ymd("2022-02-25"),format(Time.end+12*3600, "%H:%M:%S"))),
+          Time.int=time_length(interval(Time.start,Time.end),"mins"))
+dist4$Interval<-1:nrow(dist4)
+
+#import position of loggers in the field
+position4<-data.frame(ID=c(16,17,5,11,19,20),
+                    Height=c(1.8,1.8,1.2,1.2,0.4,0.4),
+                    Position= rep(c("facing","opposite"),times=3))
+
+#import actual data from loggers
+data.path4<-here("Data","2022-02-25_fifth_test_outdoors")
+files4 <- list.files(data.path4, pattern = "*.csv") 
+
+#name data and set right classes
+logs4 <- files4 %>%
+            map(~ read_csv(file.path(data.path4,files4),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Mobile = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Mobile>100) %>%     #remove data recorded from mobile loggers
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y"))) #%>% 
+    #        distinct(ID,Date,.keep_all= TRUE)   #remove duplicates
+
+#merge data with distance and date
+logs.dist4<-logs4 %>% 
+           left_join(position4,by="ID") %>% 
+           arrange(Date) %>% 
+           mutate(Interval=cut(Date,breaks=c(dist4$Time.start[1],dist4$Time.end),labels=F)) %>% 
+           left_join(dist4, by="Interval",all.y=F) %>% 
+           mutate(ID=as.factor(ID),
+                  Mobile=as.factor(Mobile),
+                  Test=4)
+
+```
+
+
+Now that the data are imported and merged, we can generate figures showing the performance of the different loggers and over the different tests (1,2,3).
+
+```{r ,echo=F, fig.height=10,fig.width=10,message=F}
 
 #bind data from different tests
-logs.all<-rbind(logs.dist,logs.dist2)
+logs.all<-rbind(logs.dist,logs.dist2,logs.dist3,logs.dist4)
 
 #count nb of logs
 count<-logs.all %>% 
-    group_by(ID,Height,Position,Test) %>% 
+    group_by(ID,Height,Position,Test,Time.int) %>% 
   mutate(Height=paste("Height:", Height, "m"),
          Test=paste("Test:",Test)) %>% 
     count()
@@ -158,7 +257,7 @@ count<-logs.all %>%
 gg<-ggplot(count, aes(fill=Position, y=n, x=as.factor(ID))) + 
     geom_bar(position="dodge", stat="identity") +
     labs(x="Logger ID",y="Logs") +
-    facet_wrap(Test~Height) +
+    facet_wrap(Test~Height,nrow=4) +
     ggtitle("Number of counts depending on height and position")
 print(gg)
 
@@ -175,7 +274,7 @@ gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
   geom_line(aes(color=ID,shape=Position)) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Counts") +
-  facet_wrap(Test~Height,nrow=2) +
+  facet_wrap(Test~Height,nrow=4) +
    ggtitle("Number of counts depending on distance")
 print(gdist)
 
@@ -185,39 +284,37 @@ gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
 #  geom_line(aes(color=ID,shape=Position)) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Signal strength (dB)") +
-  facet_wrap(Test~Height,nrow=2) +
+  facet_wrap(Test~Height,nrow=4) +
    ggtitle("Signal strength depending on distance")
 print(gsig)
 
 ```
 
-It looks like higher loggers work better.
-
 After analyzing the effect of stationary loggers, we can now check the performance of mobile loggers from test 2 (only 1 mobile logger was working on test 1).
 
-```{r mobile loggers , echo=F, fig.height=5,fig.width=10}
+```{r mobile loggers test 2 , echo=F, fig.height=5,fig.width=10}
 count<-logs.dist2 %>% 
-    group_by(Detection,ID) %>% 
+    group_by(Mobile,ID) %>% 
     count()
 
 #plot nb of logs depending on stationary logger
-gg<-ggplot(count, aes(fill=Detection, y=n, x=as.factor(ID))) + 
+gg<-ggplot(count, aes(fill=Mobile, y=n, x=as.factor(ID))) + 
     geom_bar(position="dodge", stat="identity") +
     labs(x="Logger ID stationary",y="Logs") +
-    facet_wrap(~Detection) +
+    facet_wrap(~Mobile) +
     ggtitle("Number of counts depending on stationary logger")
 print(gg)
 
 #plot counts according to distance
 count.dist<-logs.dist2 %>% 
-  group_by(ID,Detection,Distance) %>%
+  group_by(ID,Mobile,Distance) %>%
   mutate(ID=as.factor(ID),
-         Detection=as.factor(Detection)) %>% 
+         Mobile=as.factor(Mobile)) %>% 
   count()
 
 gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
-  geom_point(aes(color=Detection),size=2) +
-  geom_line(aes(color=Detection)) +
+  geom_point(aes(color=Mobile),size=2) +
+  geom_line(aes(color=Mobile)) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Counts") +
   facet_wrap(~ID,nrow=2) +
@@ -226,7 +323,7 @@ print(gdist)
 
 
 gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
-  geom_point(aes(color=Detection),size=2) +
+  geom_point(aes(color=Mobile),size=2) +
 #  geom_line(aes(color=ID) +
 #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
   labs(x="Distance (m)",y="Signal strength (dB)") +
@@ -237,3 +334,79 @@ print(gsig)
 
 ```
 
+Test of mobile logger performance for test 3. It seems that performance is not related to battery placement but the logger itself (1003 was again performing better than the other ones)
+
+```{r mobile loggers test 3 , echo=F, fig.height=5,fig.width=10}
+count<-logs.dist3 %>% 
+    group_by(Mobile,ID) %>% 
+    count()
+
+#plot nb of logs depending on stationary logger
+gg<-ggplot(count, aes(fill=Mobile, y=n, x=as.factor(ID))) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Logger ID stationary",y="Logs") +
+    facet_wrap(~Mobile) +
+    ggtitle("Number of counts depending on stationary logger")
+print(gg)
+
+#plot counts according to distance
+count.dist<-logs.dist3 %>% 
+  group_by(ID,Mobile,Distance) %>%
+  mutate(ID=as.factor(ID),
+         Mobile=as.factor(Mobile)) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=Mobile),size=2) +
+  geom_line(aes(color=Mobile)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_wrap(~ID,nrow=2) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+```
+
+Results from test 4 for the 4 detected loggers.
+
+```{r mobile loggers test 4 , echo=F, fig.height=5,fig.width=10}
+count<-logs.dist4 %>% 
+    group_by(Mobile,ID) %>% 
+    count()
+
+#plot nb of logs depending on stationary logger
+gg<-ggplot(count, aes(fill=Mobile, y=n, x=as.factor(ID))) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Logger ID stationary",y="Logs") +
+    facet_wrap(~Mobile) +
+    ggtitle("Number of counts depending on stationary logger")
+print(gg)
+
+#plot counts according to distance
+count.dist<-logs.dist4 %>% 
+  group_by(ID,Mobile,Distance) %>%
+  mutate(ID=as.factor(ID),
+         Mobile=as.factor(Mobile)) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=Mobile),size=2) +
+  geom_line(aes(color=Mobile)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_wrap(~ID,nrow=2) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+
+# gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
+#   geom_point(aes(color=Mobile),size=2) +
+# #  geom_line(aes(color=ID) +
+# #  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+#   labs(x="Distance (m)",y="Signal strength (dB)") +
+#   facet_wrap(~ID,nrow=2) +
+#    ggtitle("Signal strength depending on distance")
+# print(gsig)
+
+
+```
