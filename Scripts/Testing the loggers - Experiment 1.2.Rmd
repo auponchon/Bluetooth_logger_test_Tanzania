@@ -1,0 +1,186 @@
+---
+title: "Test of bluetooth loggers - Experiment 1 Second batch"
+author: "Aurore Ponchon"
+date: "17/03/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=F)
+```
+
+## First experiment: measuring the signal strength at fixed distances 14/03/2022
+
+This experiment was run with a horizontal position of the stationary loggers. Antennas are not opposite or facing mobile loggers anymore.
+
+
+```{r data import , message=F, include=F, echo=F}
+
+library(tidyverse)
+library(here)
+library(readxl)
+library(lubridate)
+
+#function to format logs and relate distance and time intervals
+get_formatted_data<- function (XLfile=xlfile,  #excel file linking distance and time intervals
+                             Date=date.exp,    #date of experiment
+                             Path.Data=data.path,  #path to the folder containing log data from stationary loggers
+                             Position=position,  # table with position of stationary loggers
+                             Test=test){   #test number
+
+  
+  #import table with time and distance recorded in the field
+dist<-read_excel(xlfile) %>%
+  mutate(Time.start = ymd_hms(paste(ymd(Date),format(Time.start, "%H:%M:%S"))),
+         Time.end= ymd_hms(paste(ymd(Date),format(Time.end, "%H:%M:%S"))),
+         Time.int=time_length(interval(Time.start,Time.end),"mins"))
+dist$Interval<-1:nrow(dist)
+
+
+#import actual data from loggers
+files <- list.files(Path.Data, pattern = "*.csv") 
+
+#name data and set right classes
+logs <- files %>%
+            map(~ read_csv(file.path(Path.Data,files),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Mobile = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Mobile>100) %>%    #we only want logs from mobile loggers which are from 1001
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y")))
+
+#merge data with distance and date
+logs.dist<-logs %>% 
+           left_join(Position,by="ID") %>%   
+           arrange(Date) %>% 
+        #   distinct(ID,Date,.keep_all= TRUE) %>%  #no need to actually get rid of duplicates
+           mutate(Interval=cut(Date,breaks=c(dist$Time.start[1],dist$Time.end),
+                               labels=F)) %>%   #assign distance with logs and time
+           left_join(dist, by="Interval",all.y=F) %>% 
+           mutate(ID=as.factor(ID),
+                  Test=Test)
+
+return(logs.dist)
+}
+
+xlfile<-here("Data","2022-03-14_new_statio_position","2022_03_14_test_distance_time.xlsx")
+date.exp<-ymd("2022-03-14")
+data.path<-here("Data","2022-03-14_new_statio_position")
+test<-1
+
+position<-data.frame(ID=c(13,11,2,17,5,10),
+                     Height=c(1.7,1.7,1.25,1.25,0.6,0.6),
+                     Position=1)
+
+Logs.test1<-get_formatted_data(XLfile=xlfile,  #excel file linking distance and time intervals
+                             Date=date.exp,    #date of experiment
+                             Path.Data=data.path,  #path to the folder containing log data from stationary loggers
+                             Position=position,
+                             Test=test)
+```
+
+
+# Figures for stationary loggers according to tests
+
+
+```{r common figures,echo=F, fig.height=5,fig.width=15,message=F}
+
+#bind data from different tests
+logs.all<-Logs.test1 %>% 
+   mutate(ID=as.factor(ID),
+          Mobile=as.factor(Mobile))
+
+#count nb of logs
+count<-logs.all %>% 
+    group_by(ID,Height,Test,Time.int) %>% 
+  mutate(Height=paste("Height:", Height, "m"),
+         Test=paste("Test:",Test)) %>% 
+    count()
+
+#plot nb of logs depending on stationary logger
+gg<-ggplot(count, aes( y=n, x=as.factor(ID),fill=ID)) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Logger ID",y="Logs") +
+    facet_grid(Test~Height) +
+    ggtitle("Number of counts depending on height and position")
+print(gg)
+
+#plot counts according to distance
+count.dist<-logs.all %>% 
+  group_by(ID,Height,Distance,Test) %>%
+  mutate(ID=as.factor(ID),
+         Height=paste("Height:", Height, "m"),
+         Test=paste("Test:",Test)) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=ID),size=2) +
+  geom_line(aes(color=ID)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_wrap(Test~Height,nrow=length(unique(logs.all$Test))) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+
+gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
+  geom_point(aes(color=ID),size=2) +
+#  geom_line(aes(color=ID,shape=Position)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Signal strength (dB)") +
+  facet_wrap(Test~Height,nrow=length(unique(logs.all$Test))) +
+   ggtitle("Signal strength depending on distance")
+print(gsig)
+
+```
+
+# Figures for mobile loggers according to tests
+
+```{r mobile logger plots , echo=F, fig.height=5,fig.width=15}
+count<-logs.all %>% 
+    group_by(Mobile,ID,Test) %>% 
+    mutate(Mobile=as.factor(Mobile),
+           ID=as.factor(ID),
+           Test=Test) %>% 
+    count()
+
+#plot nb of logs depending on stationary logger and test number
+gg<-ggplot(count, aes(fill=Mobile, y=n, x=ID)) + 
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Stationary logger ID",y="Logs") +
+    facet_grid(Test~Mobile) +
+    ggtitle("Number of counts depending on stationary logger")
+print(gg)
+
+#plot counts according to distance
+count.dist<-logs.all %>% 
+  group_by(ID,Mobile,Distance,Test) %>%
+  mutate(ID=as.factor(ID),
+         Mobile=as.factor(Mobile)) %>% 
+  count()
+
+gdist<-ggplot(count.dist,aes(x=Distance,y=n))+
+  geom_point(aes(color=Mobile),size=2) +
+  geom_line(aes(color=Mobile)) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Counts") +
+  facet_grid(Test~ID) + #,nrow=length(unique(count.dist$Test))) +
+   ggtitle("Number of counts depending on distance")
+print(gdist)
+
+
+gsig<-ggplot(logs.all,aes(x=Distance,y=Signal))+
+  geom_point(aes(color=Mobile)) +
+#  geom_line(aes(color=ID) +
+#  scale_color_discrete(values=c("pink","red","blue","cyan","orange","yellow")) +
+  labs(x="Distance (m)",y="Signal strength (dB)") +
+  facet_grid(Test~ID) +
+   ggtitle("Signal strength depending on distance")
+print(gsig)
+
+
+```
