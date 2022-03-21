@@ -1,0 +1,77 @@
+---
+title: "Test of epoxy on mobile loggers"
+author: "Aurore Ponchon"
+date: "21/03/2022"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message=F)
+```
+
+## Test of epoxy on mobile loggers 08-03-2022
+
+This test has been set to count the number of logs per minutes mobile loggers can be detected by stationary loggers. It has been run by Daniel in his office. 
+
+```{r fig.width=12, fig.height=8, dpi=400}
+
+library(tidyverse)
+library(here)
+library(readxl)
+library(lubridate)
+
+Path.Data<-here("Data","2022-03-08_test_mobile_epoxy_indoors")
+
+#import actual data from loggers
+files <- list.files(Path.Data, pattern = "*.csv") 
+loggers<-data.frame(Mobile = c(1102, 1006, 1008, 1009,1101, 1003, 1010, 1002),
+                    Coating = c(rep("none",times=5),rep("epoxy",times=3)))
+
+logs <- files %>%
+            map(~ read_csv(file.path(Path.Data,files),
+                           col_names=F,
+                           col_types=c('i','i','T','n'))) %>% 
+            reduce(rbind) %>% 
+            rename(ID=X1,
+                   Mobile = X2,
+                   Date=X3,
+                   Signal=X4) %>% 
+            filter(Mobile>100) %>%    #we only want logs from mobile loggers which are from 1001
+            mutate(Date=ymd_hms(as.POSIXct(Date,format="%H:%M:%S %d/%m/%Y"))) %>% 
+            left_join(loggers,by="Mobile")
+
+interv<-seq(floor_date(logs$Date[1],unit="mins"),ceiling_date(logs$Date[nrow(logs)],unit="mins"),60)
+
+logs$Interv<-cut(logs$Date,breaks=interv, labels=F)
+
+
+logs.sumup<-logs %>% 
+    group_by(Mobile,ID,Coating,Interv) %>% 
+    count() %>% 
+    mutate(Mobile=as.factor(Mobile),
+           ID=as.factor(ID),
+           Coating=as.factor(Coating),
+           Interv=as.factor(Interv),
+           Count=n)
+
+cnt<-ggplot(logs.sumup, aes(x=Interv,y=n,fill=Coating))+
+    geom_bar(position="dodge", stat="identity") +
+    labs(x="Time from start (mins)",y="Logs") +
+    facet_grid(Mobile~ID) 
+print(cnt)
+
+logs.mean<-logs.sumup %>% 
+           group_by(Mobile,ID, Coating) %>% 
+           summarise(Mean=mean(Count),
+           SD=sd(Count))
+
+cnt.mean<-ggplot(logs.mean,aes(x=Mobile,y=Mean,fill=Coating)) +
+                  geom_bar(position=position_dodge(), stat="identity") +
+                  geom_errorbar(aes(ymin=Mean-SD, ymax=Mean+SD), width=.2,
+                                position=position_dodge(.9)) +
+     labs(x="Mobile loggers",y="Mean logs per minute") +
+                  facet_grid(.~ID) 
+print(cnt.mean)                
+
+```
+
